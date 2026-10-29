@@ -1,0 +1,31 @@
+schema: spec-driven
+
+context: |
+  Pawlum is a Flutter app for recording and revisiting pet memories.
+  The application source lives in pawlum_flutter/; files at the workspace root
+  are supporting design and research artifacts unless a change explicitly names them.
+  Tech stack: Flutter, Dart SDK ^3.8.1, GetX for state management and routing,
+  Google Fonts, and intl. The current app uses local/mock data.
+  Run Flutter analysis and tests from pawlum_flutter/.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
