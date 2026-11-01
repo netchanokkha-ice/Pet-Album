@@ -47,6 +47,7 @@ dependencies:
   path_provider: 2.1.6
   uuid: 4.6.0
   connectivity_plus: 7.3.2
+  crypto: 3.0.8
   intl: 0.20.2
   google_fonts: 8.2.1
 
@@ -66,11 +67,28 @@ dev_dependencies:
   drift_dev: 2.35.2
   mocktail: 1.0.5
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/fonts/licenses/
+
+  fonts:
+    - family: PawlumJua
+      fonts:
+        - asset: assets/fonts/Jua-Regular.ttf
+          weight: 400
+    - family: PawlumItim
+      fonts:
+        - asset: assets/fonts/Itim-Regular.ttf
+          weight: 400
+    - family: PawlumCaveat
+      fonts:
+        - asset: assets/fonts/Caveat-Variable.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:
