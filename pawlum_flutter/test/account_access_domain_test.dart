@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pawlum/features/account_access/data/repositories/in_memory_account_repository.dart';
 import 'package:pawlum/features/account_access/domain/entities/account_identity.dart';
@@ -74,6 +77,36 @@ void main() {
       'verified-user',
     );
   });
+
+  test(
+    'digest-seeded demo account accepts only the matching credentials',
+    () async {
+      const email = 'demo@example.com';
+      const password = 'demo-password';
+      String digest(String value) =>
+          sha256.convert(utf8.encode(value)).toString();
+      repository.seedVerifiedAccountWithDigests(
+        id: 'demo-user',
+        emailDigest: digest(email),
+        passwordDigest: digest(password),
+      );
+
+      final rejected = await SignInWithEmail(repository)(
+        email: email,
+        password: 'incorrect-password',
+      );
+      expect(rejected, isA<AccountRejected<AccountSession>>());
+
+      final accepted = await SignInWithEmail(repository)(
+        email: ' DEMO@example.com ',
+        password: password,
+      );
+      final session = (accepted as AccountSuccess<AccountSession>).value;
+      expect(session.account.email, email);
+      expect(session.account.isEmailVerified, isTrue);
+      expect(session.canAccessJournalAt(now), isTrue);
+    },
+  );
 
   test('expired stored session becomes a typed recoverable failure', () async {
     repository.seedAccount(

@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 
 import '../../domain/entities/account_identity.dart';
 import '../../domain/entities/account_registration.dart';
@@ -16,6 +19,8 @@ class InMemoryAccountRepository implements AccountRepository {
   final DateTime Function() now;
   final Duration sessionDuration;
   final Map<String, _StoredAccount> _accounts = <String, _StoredAccount>{};
+  final Map<String, _SeededVerifiedAccount> _seededAccountsByEmailDigest =
+      <String, _SeededVerifiedAccount>{};
   final StreamController<AccountSession> _authSessions =
       StreamController<AccountSession>.broadcast(sync: true);
 
@@ -43,7 +48,18 @@ class InMemoryAccountRepository implements AccountRepository {
   }) {
     _accounts[_normalizeEmail(account.email)] = _StoredAccount(
       identity: account,
-      password: password,
+      passwordDigest: _digest(password),
+    );
+  }
+
+  void seedVerifiedAccountWithDigests({
+    required String id,
+    required String emailDigest,
+    required String passwordDigest,
+  }) {
+    _seededAccountsByEmailDigest[emailDigest] = _SeededVerifiedAccount(
+      id: id,
+      passwordDigest: passwordDigest,
     );
   }
 
@@ -53,7 +69,8 @@ class InMemoryAccountRepository implements AccountRepository {
     required String password,
   }) async {
     final normalizedEmail = _normalizeEmail(email);
-    if (_accounts.containsKey(normalizedEmail)) {
+    if (_accounts.containsKey(normalizedEmail) ||
+        _seededAccountsByEmailDigest.containsKey(_digest(normalizedEmail))) {
       return const AccountRejected<AccountRegistration>(
         AccountFailure.emailAlreadyInUse(),
       );
@@ -67,7 +84,7 @@ class InMemoryAccountRepository implements AccountRepository {
     );
     _accounts[normalizedEmail] = _StoredAccount(
       identity: identity,
-      password: password,
+      passwordDigest: _digest(password),
     );
     return AccountSuccess<AccountRegistration>(
       AccountRegistration(account: identity),
@@ -79,8 +96,10 @@ class InMemoryAccountRepository implements AccountRepository {
     required String email,
     required String password,
   }) async {
-    final stored = _accounts[_normalizeEmail(email)];
-    if (stored == null || stored.password != password) {
+    final normalizedEmail = _normalizeEmail(email);
+    final stored =
+        _accounts[normalizedEmail] ?? _seededAccount(normalizedEmail);
+    if (stored == null || stored.passwordDigest != _digest(password)) {
       return const AccountRejected<AccountSession>(
         AccountFailure.invalidCredentials(),
       );
@@ -148,11 +167,37 @@ class InMemoryAccountRepository implements AccountRepository {
   }
 
   String _normalizeEmail(String email) => email.trim().toLowerCase();
+
+  String _digest(String value) => sha256.convert(utf8.encode(value)).toString();
+
+  _StoredAccount? _seededAccount(String normalizedEmail) {
+    final seeded = _seededAccountsByEmailDigest[_digest(normalizedEmail)];
+    if (seeded == null) return null;
+    return _StoredAccount(
+      identity: AccountIdentity(
+        id: seeded.id,
+        email: normalizedEmail,
+        isEmailVerified: true,
+        authMethods: const <AccountAuthMethod>{AccountAuthMethod.emailPassword},
+      ),
+      passwordDigest: seeded.passwordDigest,
+    );
+  }
 }
 
 class _StoredAccount {
-  const _StoredAccount({required this.identity, required this.password});
+  const _StoredAccount({required this.identity, required this.passwordDigest});
 
   final AccountIdentity identity;
-  final String password;
+  final String passwordDigest;
+}
+
+class _SeededVerifiedAccount {
+  const _SeededVerifiedAccount({
+    required this.id,
+    required this.passwordDigest,
+  });
+
+  final String id;
+  final String passwordDigest;
 }

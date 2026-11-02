@@ -36,6 +36,27 @@ class AppBootstrap {
     this.localeController,
   });
 
+  factory AppBootstrap.demo({
+    required AppConfig config,
+    required String accountEmailDigest,
+    required String accountPasswordDigest,
+    Locale? locale,
+    AppLocaleController? localeController,
+  }) {
+    final accountRepository = InMemoryAccountRepository(now: DateTime.now)
+      ..seedVerifiedAccountWithDigests(
+        id: 'demo-verified-account',
+        emailDigest: accountEmailDigest,
+        passwordDigest: accountPasswordDigest,
+      );
+    return AppBootstrap.fake(
+      config: config,
+      accountRepository: accountRepository,
+      locale: locale,
+      localeController: localeController,
+    );
+  }
+
   factory AppBootstrap.fake({
     required AppConfig config,
     AppReadiness readiness = const AppReadiness(
