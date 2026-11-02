@@ -28,6 +28,7 @@ class PawlumApp extends StatelessWidget {
     required this.memoryLifecycleRepository,
     required this.timelineRepository,
     required this.petProfilePhotoPicker,
+    required this.onboardingPhotoPicker,
     this.locale,
     this.localeController,
     super.key,
@@ -42,6 +43,7 @@ class PawlumApp extends StatelessWidget {
   final MemoryLifecycleRepository memoryLifecycleRepository;
   final TimelineRepository timelineRepository;
   final PetProfilePhotoPicker petProfilePhotoPicker;
+  final PetPhotoPicker onboardingPhotoPicker;
   final Locale? locale;
   final AppLocaleController? localeController;
 
@@ -72,6 +74,7 @@ class PawlumApp extends StatelessWidget {
         memoryLifecycleRepository,
         timelineRepository,
         petProfilePhotoPicker,
+        onboardingPhotoPicker,
         config,
         localeController,
       ),

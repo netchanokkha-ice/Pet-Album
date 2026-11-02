@@ -11,19 +11,21 @@ import '../../domain/entities/pet_onboarding_draft.dart';
 import '../../domain/repositories/pet_onboarding_draft_repository.dart';
 
 abstract interface class PetPhotoPicker {
-  Future<String?> pickPhoto();
+  Future<PetPhotoSelection?> pickPhoto();
 }
 
 class NoopPetPhotoPicker implements PetPhotoPicker {
   const NoopPetPhotoPicker();
 
   @override
-  Future<String?> pickPhoto() async => null;
+  Future<PetPhotoSelection?> pickPhoto() async => null;
 }
 
 typedef PetOnboardingExit = Future<void> Function();
 typedef PetOnboardingConfirmation =
     Future<void> Function(PetOnboardingDraft draft);
+
+String _defaultDraftIdGenerator() => 'active';
 
 class PetOnboardingController extends GetxController {
   PetOnboardingController(
@@ -33,6 +35,7 @@ class PetOnboardingController extends GetxController {
     required this.onExit,
     required this.onConfirm,
     this.photoPicker = const NoopPetPhotoPicker(),
+    this.draftIdGenerator = _defaultDraftIdGenerator,
   });
 
   final PetOnboardingDraftRepository _draftRepository;
@@ -41,6 +44,7 @@ class PetOnboardingController extends GetxController {
   final PetOnboardingExit onExit;
   final PetOnboardingConfirmation onConfirm;
   final PetPhotoPicker photoPicker;
+  final String Function() draftIdGenerator;
 
   final isLoading = true.obs;
   final isSaving = false.obs;
@@ -84,7 +88,7 @@ class PetOnboardingController extends GetxController {
         restored ??
         PetOnboardingDraft(
           accountId: session.account.id,
-          id: 'active',
+          id: draftIdGenerator(),
           step: PetOnboardingStep.welcome,
           updatedAt: now(),
         );
@@ -149,10 +153,16 @@ class PetOnboardingController extends GetxController {
   }
 
   Future<void> pickPhoto() async {
-    final selectedPath = await photoPicker.pickPhoto();
-    if (selectedPath == null) return;
+    final selected = await photoPicker.pickPhoto();
+    if (selected == null) return;
     await _update((PetOnboardingDraft current) {
-      return current.copyWith(profileImagePath: selectedPath, updatedAt: now());
+      return current.copyWith(
+        profileImageBytes: selected.bytes,
+        profileImageFileName: selected.fileName,
+        profileImageMimeType: selected.mimeType,
+        clearProfileImagePath: true,
+        updatedAt: now(),
+      );
     });
   }
 

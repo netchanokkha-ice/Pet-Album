@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:pawlum/core/sync/drift_sync_operation_store.dart';
 import 'package:pawlum/core/sync/sync_operation.dart';
 import 'package:pawlum/features/pet_profiles/data/data_sources/supabase_pet_journal_gateway.dart';
 import 'package:pawlum/features/pet_profiles/data/repositories/drift_pet_onboarding_draft_repository.dart';
+import 'package:pawlum/features/pet_profiles/data/supabase_pet_photo_upload_gateway.dart';
 import 'package:pawlum/features/pet_profiles/domain/entities/pet_initialization.dart';
 import 'package:pawlum/features/pet_profiles/domain/entities/pet_models.dart';
 import 'package:pawlum/features/pet_profiles/domain/entities/pet_onboarding_draft.dart';
@@ -124,6 +126,46 @@ void main() {
     expect(rpc.parameters['p_first_memory_date'], '2024-06-02');
     expect(result.workingVersionId, ids.versionId);
   });
+
+  test('pet photo upload uses a stable private owner path', () async {
+    final store = _RecordingPetPhotoObjectStore();
+    final gateway = SupabasePetPhotoUploadGateway(store);
+    final draft = PetOnboardingDraft(
+      accountId: 'account-a',
+      id: 'draft-a',
+      step: PetOnboardingStep.confirmation,
+      name: 'Mochi',
+      type: PetType.cat,
+      profileImageBytes: Uint8List.fromList(<int>[1, 2, 3]),
+      profileImageFileName: 'mochi.png',
+      profileImageMimeType: 'image/png',
+      updatedAt: DateTime.utc(2026, 11, 1),
+    );
+
+    final objectPath = await gateway.upload(draft: draft, petId: 'pet-a');
+
+    expect(objectPath, 'account-a/pet-a/profile/draft-a.png');
+    expect(store.objectPath, objectPath);
+    expect(store.bytes, <int>[1, 2, 3]);
+    expect(store.mimeType, 'image/png');
+  });
+}
+
+class _RecordingPetPhotoObjectStore implements PetPhotoObjectStore {
+  String? objectPath;
+  Uint8List? bytes;
+  String? mimeType;
+
+  @override
+  Future<void> upload({
+    required String objectPath,
+    required Uint8List bytes,
+    required String mimeType,
+  }) async {
+    this.objectPath = objectPath;
+    this.bytes = bytes;
+    this.mimeType = mimeType;
+  }
 }
 
 class _InMemoryAtomicGateway implements AtomicPetJournalGateway {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,9 @@ void main() {
         name: 'Mochi',
         type: PetType.cat,
         birthday: DateTime.utc(2024, 5, 10),
+        profileImageBytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+        profileImageFileName: 'mochi.png',
+        profileImageMimeType: 'image/png',
         updatedAt: updatedAt,
       ),
     );
@@ -39,6 +43,9 @@ void main() {
     expect(restored?.name, 'Mochi');
     expect(restored?.type, PetType.cat);
     expect(restored?.birthday, DateTime.utc(2024, 5, 10));
+    expect(restored?.profileImageBytes, <int>[1, 2, 3, 4]);
+    expect(restored?.profileImageFileName, 'mochi.png');
+    expect(restored?.profileImageMimeType, 'image/png');
     expect(await repository.load('account-b'), isNull);
 
     await repository.clear('account-a');

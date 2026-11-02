@@ -16,10 +16,14 @@ class DriftPetOnboardingDraftRepository
   @override
   Future<PetOnboardingDraft?> load(String accountId) async {
     final row =
-        await (_database.select(_database.onboardingDrafts)..where(
-              (OnboardingDrafts table) =>
-                  table.accountId.equals(accountId) & table.id.equals('active'),
-            ))
+        await (_database.select(_database.onboardingDrafts)
+              ..where(
+                (OnboardingDrafts table) => table.accountId.equals(accountId),
+              )
+              ..orderBy(<OrderClauseGenerator<OnboardingDrafts>>[
+                (OnboardingDrafts table) => OrderingTerm.desc(table.updatedAt),
+              ])
+              ..limit(1))
             .getSingleOrNull();
     if (row == null) return null;
 
@@ -37,6 +41,12 @@ class DriftPetOnboardingDraftRepository
       type: _typeFromWire(decoded['type'] as String?),
       customTypeLabel: decoded['customTypeLabel'] as String?,
       profileImagePath: decoded['profileImagePath'] as String?,
+      profileImageBytes: switch (decoded['profileImageBase64']) {
+        final String value when value.isNotEmpty => base64Decode(value),
+        _ => null,
+      },
+      profileImageFileName: decoded['profileImageFileName'] as String?,
+      profileImageMimeType: decoded['profileImageMimeType'] as String?,
       birthday: _dateFromWire(decoded['birthday'] as String?),
       firstMetDate: _dateFromWire(decoded['firstMetDate'] as String?),
       updatedAt: row.updatedAt,
@@ -50,6 +60,11 @@ class DriftPetOnboardingDraftRepository
       'type': draft.type?.name,
       'customTypeLabel': draft.customTypeLabel,
       'profileImagePath': draft.profileImagePath,
+      'profileImageBase64': draft.profileImageBytes == null
+          ? null
+          : base64Encode(draft.profileImageBytes!),
+      'profileImageFileName': draft.profileImageFileName,
+      'profileImageMimeType': draft.profileImageMimeType,
       'birthday': draft.birthday?.toIso8601String(),
       'firstMetDate': draft.firstMetDate?.toIso8601String(),
     });
@@ -58,7 +73,7 @@ class DriftPetOnboardingDraftRepository
         .insertOnConflictUpdate(
           OnboardingDraftsCompanion.insert(
             accountId: draft.accountId,
-            id: 'active',
+            id: draft.id,
             currentStep: Value<int>(draft.step.index),
             payloadJson: Value<String>(payload),
             createdAt: draft.updatedAt,

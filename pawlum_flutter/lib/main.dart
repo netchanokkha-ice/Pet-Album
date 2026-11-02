@@ -1,29 +1,37 @@
 import 'package:flutter/widgets.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/bootstrap/app_bootstrap.dart';
 import 'core/config/app_config.dart';
 import 'core/database/pawlum_database.dart';
 import 'features/app_preferences/data/drift_language_preference_store.dart';
+import 'features/app_preferences/data/supabase_language_preference_store.dart';
 import 'features/app_preferences/presentation/app_locale_controller.dart';
-
-const _demoAccountEmailDigest =
-    '4a07d5100027dc60139d308866a93541175eff95233ae636f7246eabea599251';
-const _demoAccountPasswordDigest =
-    '5ce85f9cc6d454c963ef3733b678f7b0a9fed881d75e579bade249ac9fb60c7d';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final config = AppConfig.fromEnvironment();
+  if (!config.hasSupabaseCredentials) {
+    throw StateError(
+      'SUPABASE_PUBLISHABLE_KEY must be provided with --dart-define.',
+    );
+  }
+  await Supabase.initialize(
+    url: config.supabaseUrl,
+    publishableKey: config.supabasePublishableKey,
+  );
+  final supabase = Supabase.instance.client;
   final database = PawlumDatabase();
   final localeController = await AppLocaleController.load(
     localStore: DriftLanguagePreferenceStore(database),
+    remoteStore: SupabaseLanguagePreferenceStore(supabase),
     deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
   );
-  final bootstrap = AppBootstrap.demo(
+  final bootstrap = AppBootstrap.production(
     config: config,
-    accountEmailDigest: _demoAccountEmailDigest,
-    accountPasswordDigest: _demoAccountPasswordDigest,
+    supabase: supabase,
+    database: database,
     localeController: localeController,
   );
 

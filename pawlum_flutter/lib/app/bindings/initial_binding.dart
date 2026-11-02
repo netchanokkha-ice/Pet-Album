@@ -36,6 +36,7 @@ class InitialBinding extends Bindings {
     this.memoryLifecycleRepository,
     this.timelineRepository,
     this.petProfilePhotoPicker,
+    this.onboardingPhotoPicker,
     this.config,
     this.localeController,
   );
@@ -48,6 +49,7 @@ class InitialBinding extends Bindings {
   final MemoryLifecycleRepository memoryLifecycleRepository;
   final TimelineRepository timelineRepository;
   final PetProfilePhotoPicker petProfilePhotoPicker;
+  final PetPhotoPicker onboardingPhotoPicker;
   final AppConfig config;
   final AppLocaleController? localeController;
 
@@ -116,7 +118,16 @@ class InitialBinding extends Bindings {
         onExit: () async {
           Get.back<void>();
         },
-        onConfirm: onPetOnboardingConfirm,
+        onConfirm: (draft) async {
+          await onPetOnboardingConfirm(draft);
+          await Get.find<AppShellController>().load();
+          if (Get.isRegistered<PetHomeController>()) {
+            await Get.find<PetHomeController>().load();
+          }
+          await Get.offAllNamed<void>(AppRoutes.shell);
+        },
+        photoPicker: onboardingPhotoPicker,
+        draftIdGenerator: const Uuid().v4,
       ),
       fenix: true,
     );

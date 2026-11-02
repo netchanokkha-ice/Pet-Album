@@ -31,6 +31,7 @@ extension PumpPawlumApp on WidgetTester {
     TimelineRepository? timelineRepository,
     PetProfilePhotoPicker petProfilePhotoPicker =
         const NoopPetProfilePhotoPicker(),
+    PetPhotoPicker onboardingPhotoPicker = const NoopPetPhotoPicker(),
     Locale? locale,
     AppLocaleController? localeController,
   }) async {
@@ -46,6 +47,7 @@ extension PumpPawlumApp on WidgetTester {
       memoryLifecycleRepository: memoryLifecycleRepository,
       timelineRepository: timelineRepository,
       petProfilePhotoPicker: petProfilePhotoPicker,
+      onboardingPhotoPicker: onboardingPhotoPicker,
       locale: locale,
       localeController: localeController,
     );

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:pawlum/features/app_shell/domain/entities/app_readiness.dart';
 import 'package:pawlum/features/pet_profiles/data/repositories/in_memory_pet_onboarding_draft_repository.dart';
 import 'package:pawlum/features/pet_profiles/domain/entities/pet_onboarding_draft.dart';
+import 'package:pawlum/features/pet_profiles/presentation/controllers/pet_onboarding_controller.dart';
 
 import 'helpers/pump_pawlum_app.dart';
 
@@ -71,6 +74,30 @@ void main() {
     await tester.tap(find.text('Confirm first memory'));
     await tester.pumpAndSettle();
     expect(confirmedDraft?.name, 'Mochi');
+  });
+
+  testWidgets('Choose photo uses the onboarding picker and updates the draft', (
+    WidgetTester tester,
+  ) async {
+    final picker = _RecordingPetPhotoPicker();
+    await tester.pumpPawlumApp(
+      readiness: onboardingRequired,
+      onboardingPhotoPicker: picker,
+    );
+    await _openOnboarding(tester);
+    await tester.tap(find.text('Begin pet setup'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('pet-name-field')), 'Mochi');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Cat'));
+    await tester.ensureVisible(find.text('Continue to photo'));
+    await tester.tap(find.text('Continue to photo'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Choose photo'));
+    await tester.pumpAndSettle();
+
+    expect(picker.calls, 1);
+    expect(find.text('Change photo'), findsOneWidget);
   });
 
   testWidgets('Other type requires a custom label', (
@@ -184,5 +211,21 @@ Future<void> _loadGoldenFonts() async {
   for (final (family, assetPath) in fonts) {
     final loader = FontLoader(family)..addFont(rootBundle.load(assetPath));
     await loader.load();
+  }
+}
+
+class _RecordingPetPhotoPicker implements PetPhotoPicker {
+  int calls = 0;
+
+  @override
+  Future<PetPhotoSelection?> pickPhoto() async {
+    calls += 1;
+    return PetPhotoSelection(
+      bytes: base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
+      ),
+      fileName: 'mochi.png',
+      mimeType: 'image/png',
+    );
   }
 }

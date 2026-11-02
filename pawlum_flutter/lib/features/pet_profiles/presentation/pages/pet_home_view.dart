@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -177,6 +178,22 @@ class _PetPhoto extends StatelessWidget {
     if (path == null) {
       return PawlumPetPlaceholder(
         semanticLabel: '${pet.name} placeholder',
+        size: 120,
+      );
+    }
+    if (path.startsWith('https://') || path.startsWith('http://')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => PawlumPetPlaceholder(
+          semanticLabel: '${pet.name} photo unavailable',
+          size: 120,
+        ),
+      );
+    }
+    if (kIsWeb) {
+      return PawlumPetPlaceholder(
+        semanticLabel: '${pet.name} photo unavailable',
         size: 120,
       );
     }

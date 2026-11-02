@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'pet_models.dart';
 
 enum PetOnboardingStep { welcome, petInfo, photo, confirmation }
@@ -12,6 +14,9 @@ class PetOnboardingDraft {
     this.type,
     this.customTypeLabel,
     this.profileImagePath,
+    this.profileImageBytes,
+    this.profileImageFileName,
+    this.profileImageMimeType,
     this.birthday,
     this.firstMetDate,
   });
@@ -23,6 +28,9 @@ class PetOnboardingDraft {
   final PetType? type;
   final String? customTypeLabel;
   final String? profileImagePath;
+  final Uint8List? profileImageBytes;
+  final String? profileImageFileName;
+  final String? profileImageMimeType;
   final DateTime? birthday;
   final DateTime? firstMetDate;
   final DateTime updatedAt;
@@ -45,6 +53,12 @@ class PetOnboardingDraft {
     bool clearCustomTypeLabel = false,
     String? profileImagePath,
     bool clearProfileImagePath = false,
+    Uint8List? profileImageBytes,
+    bool clearProfileImageBytes = false,
+    String? profileImageFileName,
+    bool clearProfileImageFileName = false,
+    String? profileImageMimeType,
+    bool clearProfileImageMimeType = false,
     DateTime? birthday,
     bool clearBirthday = false,
     DateTime? firstMetDate,
@@ -63,6 +77,15 @@ class PetOnboardingDraft {
       profileImagePath: clearProfileImagePath
           ? null
           : profileImagePath ?? this.profileImagePath,
+      profileImageBytes: clearProfileImageBytes
+          ? null
+          : profileImageBytes ?? this.profileImageBytes,
+      profileImageFileName: clearProfileImageFileName
+          ? null
+          : profileImageFileName ?? this.profileImageFileName,
+      profileImageMimeType: clearProfileImageMimeType
+          ? null
+          : profileImageMimeType ?? this.profileImageMimeType,
       birthday: clearBirthday ? null : birthday ?? this.birthday,
       firstMetDate: clearFirstMetDate
           ? null
@@ -70,4 +93,16 @@ class PetOnboardingDraft {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+}
+
+class PetPhotoSelection {
+  const PetPhotoSelection({
+    required this.bytes,
+    required this.fileName,
+    required this.mimeType,
+  });
+
+  final Uint8List bytes;
+  final String fileName;
+  final String mimeType;
 }

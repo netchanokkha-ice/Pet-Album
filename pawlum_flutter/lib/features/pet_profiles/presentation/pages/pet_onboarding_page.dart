@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -334,7 +332,7 @@ class _PhotoStep extends GetView<PetOnboardingController> {
 
   @override
   Widget build(BuildContext context) {
-    final photo = draft.profileImagePath;
+    final photo = draft.profileImageBytes;
     return Column(
       children: [
         Text(
@@ -359,7 +357,7 @@ class _PhotoStep extends GetView<PetOnboardingController> {
                       child: Icon(Icons.add_a_photo_rounded, size: 56),
                     ),
                   )
-                : Image.file(File(photo), fit: BoxFit.cover),
+                : Image.memory(photo, fit: BoxFit.cover),
           ),
         ),
         const SizedBox(height: PawlumSpacing.lg),
