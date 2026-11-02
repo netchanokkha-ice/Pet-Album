@@ -88,11 +88,7 @@ class InitialBinding extends Bindings {
         oauthRedirectUri: config.oauthRedirectUri,
         onAuthenticated: (_) async {
           await Get.find<AppShellController>().load();
-          if (Get.currentRoute == AppRoutes.account) {
-            Get.back<void>();
-          } else {
-            await Get.offAllNamed<void>(AppRoutes.shell);
-          }
+          await Get.offAllNamed<void>(AppRoutes.shell);
         },
       ),
       fenix: true,
