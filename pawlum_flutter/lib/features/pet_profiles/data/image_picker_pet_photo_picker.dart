@@ -19,6 +19,9 @@ class ImagePickerPetPhotoPicker implements PetPhotoPicker {
     );
     if (selected == null) return null;
 
+    if (await selected.length() > maxBytes) {
+      throw const PetPhotoSelectionFailure();
+    }
     final bytes = await selected.readAsBytes();
     if (bytes.isEmpty || bytes.length > maxBytes) {
       throw const PetPhotoSelectionFailure();

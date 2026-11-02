@@ -21,11 +21,13 @@ class SupabaseAppReadinessRepository implements AppReadinessRepository {
       );
     }
 
-    final rows = await _client
+    final rowsFuture = _client
         .from('pets')
         .select('id')
         .isFilter('deleted_at', null);
-    final draft = await _draftRepository.load(user.id);
+    final draftFuture = _draftRepository.load(user.id);
+    final rows = await rowsFuture;
+    final draft = await draftFuture;
     return AppReadiness(
       isAuthenticated: true,
       petCount: rows.length,

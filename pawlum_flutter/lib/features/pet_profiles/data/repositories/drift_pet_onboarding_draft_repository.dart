@@ -84,10 +84,9 @@ class DriftPetOnboardingDraftRepository
 
   @override
   Future<void> clear(String accountId) async {
-    await (_database.delete(_database.onboardingDrafts)..where(
-          (OnboardingDrafts table) =>
-              table.accountId.equals(accountId) & table.id.equals('active'),
-        ))
+    await (_database.delete(
+          _database.onboardingDrafts,
+        )..where((OnboardingDrafts table) => table.accountId.equals(accountId)))
         .go();
   }
 
