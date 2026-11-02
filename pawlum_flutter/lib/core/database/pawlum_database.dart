@@ -153,7 +153,16 @@ class AppPreferences extends Table {
   ],
 )
 class PawlumDatabase extends _$PawlumDatabase {
-  PawlumDatabase() : super(driftDatabase(name: 'pawlum_journal'));
+  PawlumDatabase()
+    : super(
+        driftDatabase(
+          name: 'pawlum_journal',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ),
+      );
 
   PawlumDatabase.forTesting(super.executor);
 
