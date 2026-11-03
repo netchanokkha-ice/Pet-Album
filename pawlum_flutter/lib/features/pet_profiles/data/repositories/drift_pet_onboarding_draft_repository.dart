@@ -37,6 +37,7 @@ class DriftPetOnboardingDraftRepository
       accountId: row.accountId,
       id: row.id,
       step: PetOnboardingStep.values[row.currentStep],
+      question: _questionFromWire(decoded['question'] as String?),
       name: decoded['name'] as String? ?? '',
       type: _typeFromWire(decoded['type'] as String?),
       customTypeLabel: decoded['customTypeLabel'] as String?,
@@ -56,6 +57,7 @@ class DriftPetOnboardingDraftRepository
   @override
   Future<void> save(PetOnboardingDraft draft) async {
     final payload = jsonEncode(<String, Object?>{
+      'question': draft.resolvedQuestion.name,
       'name': draft.name,
       'type': draft.type?.name,
       'customTypeLabel': draft.customTypeLabel,
@@ -94,6 +96,13 @@ class DriftPetOnboardingDraftRepository
     if (value == null) return null;
     return PetType.values
         .where((PetType type) => type.name == value)
+        .firstOrNull;
+  }
+
+  PetOnboardingQuestion? _questionFromWire(String? value) {
+    if (value == null) return null;
+    return PetOnboardingQuestion.values
+        .where((PetOnboardingQuestion question) => question.name == value)
         .firstOrNull;
   }
 

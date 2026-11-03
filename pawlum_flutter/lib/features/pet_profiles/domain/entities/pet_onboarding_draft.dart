@@ -4,12 +4,24 @@ import 'pet_models.dart';
 
 enum PetOnboardingStep { welcome, petInfo, photo, confirmation }
 
+enum PetOnboardingQuestion {
+  welcome,
+  name,
+  type,
+  customType,
+  birthday,
+  firstMetDate,
+  photo,
+  confirmation,
+}
+
 class PetOnboardingDraft {
   const PetOnboardingDraft({
     required this.accountId,
     required this.id,
     required this.step,
     required this.updatedAt,
+    this.question,
     this.name = '',
     this.type,
     this.customTypeLabel,
@@ -24,6 +36,7 @@ class PetOnboardingDraft {
   final String accountId;
   final String id;
   final PetOnboardingStep step;
+  final PetOnboardingQuestion? question;
   final String name;
   final PetType? type;
   final String? customTypeLabel;
@@ -34,6 +47,15 @@ class PetOnboardingDraft {
   final DateTime? birthday;
   final DateTime? firstMetDate;
   final DateTime updatedAt;
+
+  PetOnboardingQuestion get resolvedQuestion =>
+      question ??
+      switch (step) {
+        PetOnboardingStep.welcome => PetOnboardingQuestion.welcome,
+        PetOnboardingStep.petInfo => PetOnboardingQuestion.name,
+        PetOnboardingStep.photo => PetOnboardingQuestion.photo,
+        PetOnboardingStep.confirmation => PetOnboardingQuestion.confirmation,
+      };
 
   PetOnboardingInput get input => PetOnboardingInput(
     name: name,
@@ -46,6 +68,7 @@ class PetOnboardingDraft {
 
   PetOnboardingDraft copyWith({
     PetOnboardingStep? step,
+    PetOnboardingQuestion? question,
     String? name,
     PetType? type,
     bool clearType = false,
@@ -69,6 +92,7 @@ class PetOnboardingDraft {
       accountId: accountId,
       id: id,
       step: step ?? this.step,
+      question: question ?? this.question,
       name: name ?? this.name,
       type: clearType ? null : type ?? this.type,
       customTypeLabel: clearCustomTypeLabel

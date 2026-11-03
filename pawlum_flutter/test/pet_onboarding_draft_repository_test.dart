@@ -40,6 +40,7 @@ void main() {
     final restored = await repository.load('account-a');
 
     expect(restored?.step, PetOnboardingStep.photo);
+    expect(restored?.resolvedQuestion, PetOnboardingQuestion.photo);
     expect(restored?.id, '4d4ef86d-aa02-464c-b5f9-2e4399e0d210');
     expect(restored?.name, 'Mochi');
     expect(restored?.type, PetType.cat);

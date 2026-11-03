@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +10,8 @@ import '../../../../core/widgets/pawlum_widgets.dart';
 import '../../domain/entities/pet_models.dart';
 import '../../domain/entities/pet_onboarding_draft.dart';
 import '../controllers/pet_onboarding_controller.dart';
+
+const _questionCount = 6;
 
 class PetOnboardingPage extends GetView<PetOnboardingController> {
   const PetOnboardingPage({super.key});
@@ -29,30 +33,44 @@ class PetOnboardingPage extends GetView<PetOnboardingController> {
           if (controller.errorMessage.value case final message?) {
             return Center(child: Text(message));
           }
-          final current = controller.draft.value;
-          if (current == null) return const SizedBox.shrink();
+          final draft = controller.draft.value;
+          if (draft == null) return const SizedBox.shrink();
 
+          final question = draft.resolvedQuestion;
           return Column(
             children: [
               _OnboardingHeader(
-                step: current.step,
+                question: question,
                 onCancel: () => _showCancelDialog(context),
               ),
               const SizedBox(height: PawlumSpacing.md),
               Expanded(
-                child: SingleChildScrollView(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 620),
-                      child: AnimatedSwitcher(
-                        duration: PawlumMotion.standard,
-                        child: _StepContent(
-                          key: ValueKey<PetOnboardingStep>(current.step),
-                          draft: current,
+                child: LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.only(bottom: PawlumSpacing.md),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 620),
+                          child: _PageFlipSwitcher(
+                            question: question,
+                            forward: controller.isTurningForward.value,
+                            child: _QuestionSheet(
+                              key: ValueKey<PetOnboardingQuestion>(question),
+                              minimumHeight: math.max(
+                                500,
+                                constraints.maxHeight - PawlumSpacing.xs,
+                              ),
+                              child: _QuestionContent(
+                                question: question,
+                                draft: draft,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -68,7 +86,7 @@ class PetOnboardingPage extends GetView<PetOnboardingController> {
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Leave pet setup?'),
         content: const Text(
-          'Keep this draft for next time, or discard the setup completely.',
+          'Your answers are saved. Keep this draft for later, or discard it.',
         ),
         actions: [
           TextButton(
@@ -92,27 +110,41 @@ class PetOnboardingPage extends GetView<PetOnboardingController> {
 }
 
 class _OnboardingHeader extends StatelessWidget {
-  const _OnboardingHeader({required this.step, required this.onCancel});
+  const _OnboardingHeader({required this.question, required this.onCancel});
 
-  final PetOnboardingStep step;
+  final PetOnboardingQuestion question;
   final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
+    final progress = _progressFor(question);
+    final status = question == PetOnboardingQuestion.welcome
+        ? 'About one minute'
+        : 'Question $progress of $_questionCount';
+
     return Row(
       children: [
         Expanded(
           child: Semantics(
-            label: 'Pet setup step ${step.index + 1} of 4',
-            child: Row(
-              children: PetOnboardingStep.values
-                  .map((PetOnboardingStep item) {
-                    final active = item.index <= step.index;
+            label: question == PetOnboardingQuestion.welcome
+                ? 'Pet setup ready to begin'
+                : 'Pet setup question $progress of $_questionCount',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: List<Widget>.generate(_questionCount, (int index) {
+                    final active = index < progress;
                     return Expanded(
-                      child: Container(
-                        key: ValueKey<String>('progress-${item.name}'),
+                      child: AnimatedContainer(
+                        duration: PawlumMotion.standard,
+                        curve: PawlumMotion.enterCurve,
                         height: 6,
-                        margin: const EdgeInsets.only(right: PawlumSpacing.xs),
+                        margin: EdgeInsets.only(
+                          right: index == _questionCount - 1
+                              ? 0
+                              : PawlumSpacing.xs,
+                        ),
                         decoration: BoxDecoration(
                           color: active
                               ? PawlumColors.pinkStrong
@@ -123,210 +155,544 @@ class _OnboardingHeader extends StatelessWidget {
                         ),
                       ),
                     );
-                  })
-                  .toList(growable: false),
+                  }),
+                ),
+                const SizedBox(height: PawlumSpacing.xs),
+                Text(
+                  status,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: PawlumColors.inkMuted),
+                ),
+              ],
             ),
           ),
         ),
-        TextButton(onPressed: onCancel, child: const Text('Cancel')),
+        const SizedBox(width: PawlumSpacing.md),
+        TextButton(onPressed: onCancel, child: const Text('Save & leave')),
       ],
     );
   }
 }
 
-class _StepContent extends GetView<PetOnboardingController> {
-  const _StepContent({required this.draft, super.key});
+class _PageFlipSwitcher extends StatelessWidget {
+  const _PageFlipSwitcher({
+    required this.question,
+    required this.forward,
+    required this.child,
+  });
 
+  final PetOnboardingQuestion question;
+  final bool forward;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: reduceMotion
+            ? PawlumMotion.quick
+            : const Duration(milliseconds: 420),
+        reverseDuration: reduceMotion
+            ? PawlumMotion.quick
+            : const Duration(milliseconds: 320),
+        switchInCurve: PawlumMotion.enterCurve,
+        switchOutCurve: PawlumMotion.exitCurve,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          if (reduceMotion) {
+            return FadeTransition(opacity: animation, child: child);
+          }
+
+          final incoming =
+              child.key == ValueKey<PetOnboardingQuestion>(question);
+          final direction = forward ? 1.0 : -1.0;
+          final beginAngle = (incoming ? direction : -direction) * math.pi / 2;
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: incoming ? PawlumMotion.enterCurve : PawlumMotion.exitCurve,
+          );
+          final turn = Tween<double>(begin: beginAngle, end: 0).animate(curved);
+
+          return FadeTransition(
+            opacity: Tween<double>(begin: 0.18, end: 1).animate(curved),
+            child: AnimatedBuilder(
+              animation: turn,
+              child: child,
+              builder: (BuildContext context, Widget? child) {
+                return Transform(
+                  key: const Key('onboarding-page-flip'),
+                  alignment: forward
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
+                  transform: Matrix4.identity()
+                    ..setEntry(3, 2, 0.0012)
+                    ..rotateY(turn.value),
+                  child: child,
+                );
+              },
+            ),
+          );
+        },
+        child: child,
+      ),
+    );
+  }
+}
+
+class _QuestionSheet extends StatelessWidget {
+  const _QuestionSheet({
+    required this.minimumHeight,
+    required this.child,
+    super.key,
+  });
+
+  final double minimumHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact =
+        PawlumLayoutTheme.of(context).windowClass == PawlumWindowClass.compact;
+
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Container(
+        width: double.infinity,
+        alignment: Alignment.center,
+        constraints: BoxConstraints(minHeight: minimumHeight),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? PawlumSpacing.lg : PawlumSpacing.xl,
+          vertical: compact ? PawlumSpacing.xl : PawlumSpacing.xxl,
+        ),
+        decoration: BoxDecoration(
+          color: PawlumColors.paper,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: PawlumShadows.paper,
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _QuestionContent extends GetView<PetOnboardingController> {
+  const _QuestionContent({required this.question, required this.draft});
+
+  final PetOnboardingQuestion question;
   final PetOnboardingDraft draft;
 
   @override
-  Widget build(BuildContext context) => switch (draft.step) {
-    PetOnboardingStep.welcome => _WelcomeStep(onBegin: controller.begin),
-    PetOnboardingStep.petInfo => _PetInfoStep(draft: draft),
-    PetOnboardingStep.photo => _PhotoStep(draft: draft),
-    PetOnboardingStep.confirmation => _ConfirmationStep(draft: draft),
+  Widget build(BuildContext context) => switch (question) {
+    PetOnboardingQuestion.welcome => const _WelcomeQuestion(),
+    PetOnboardingQuestion.name => _NameQuestion(draft: draft),
+    PetOnboardingQuestion.type => _TypeQuestion(draft: draft),
+    PetOnboardingQuestion.customType => _CustomTypeQuestion(draft: draft),
+    PetOnboardingQuestion.birthday => _DateQuestion(
+      title: 'When was ${_petName(draft)} born?',
+      description: 'This is optional. An estimate is perfectly fine.',
+      value: draft.birthday,
+      chooseLabel: 'Choose birthday',
+      clearLabel: 'Clear birthday',
+      onChanged: controller.setBirthday,
+      onNext: controller.continueFromBirthday,
+    ),
+    PetOnboardingQuestion.firstMetDate => _DateQuestion(
+      title: 'When did you first meet ${_petName(draft)}?',
+      description: 'We’ll use it to open the first page of your journal.',
+      value: draft.firstMetDate,
+      chooseLabel: 'Choose the day',
+      clearLabel: 'Clear date',
+      onChanged: controller.setFirstMetDate,
+      onNext: controller.continueFromFirstMetDate,
+    ),
+    PetOnboardingQuestion.photo => _PhotoQuestion(draft: draft),
+    PetOnboardingQuestion.confirmation => _ConfirmationQuestion(draft: draft),
   };
 }
 
-class _WelcomeStep extends StatelessWidget {
-  const _WelcomeStep({required this.onBegin});
-
-  final Future<void> Function() onBegin;
+class _WelcomeQuestion extends GetView<PetOnboardingController> {
+  const _WelcomeQuestion();
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         const PawlumWashiTape(label: 'A new little chapter', width: 190),
-        const SizedBox(height: PawlumSpacing.lg),
+        const SizedBox(height: PawlumSpacing.xl),
         const PawlumPetPlaceholder(
           semanticLabel: 'Pet journal welcome',
-          size: 120,
+          size: 116,
         ),
-        const SizedBox(height: PawlumSpacing.lg),
+        const SizedBox(height: PawlumSpacing.xl),
         Text(
           'Let’s meet your pet',
           style: Theme.of(context).textTheme.headlineLarge,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: PawlumSpacing.sm),
-        Text(
-          'A few details help every memory land in the right journal.',
-          style: Theme.of(context).textTheme.bodyLarge,
-          textAlign: TextAlign.center,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Text(
+            'Six small questions, then their private journal is ready for the moments you want to keep.',
+            style: Theme.of(context).textTheme.bodyLarge,
+            textAlign: TextAlign.center,
+          ),
         ),
         const SizedBox(height: PawlumSpacing.xl),
         PawlumPrimaryButton(
-          label: 'Begin pet setup',
+          label: 'Start with their name',
           icon: Icons.pets_rounded,
-          onPressed: () => unawaited(onBegin()),
+          onPressed: () => unawaited(controller.begin()),
         ),
       ],
     );
   }
 }
 
-class _PetInfoStep extends GetView<PetOnboardingController> {
-  const _PetInfoStep({required this.draft});
+class _NameQuestion extends GetView<PetOnboardingController> {
+  const _NameQuestion({required this.draft});
 
   final PetOnboardingDraft draft;
 
   @override
   Widget build(BuildContext context) {
-    final issues = controller.issues;
+    final hasError = controller.issues.contains(
+      PetOnboardingIssue.nameRequired,
+    );
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PawlumStickerLabel(
-          label: 'Pet details',
-          icon: Icons.favorite_rounded,
+        const Center(
+          child: PawlumPetPlaceholder(semanticLabel: 'Pet name', size: 88),
         ),
-        const SizedBox(height: PawlumSpacing.md),
+        const SizedBox(height: PawlumSpacing.xl),
         Text(
-          'Tell us about your pet',
+          'What should we call your pet?',
           style: Theme.of(context).textTheme.headlineLarge,
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: PawlumSpacing.lg),
+        const SizedBox(height: PawlumSpacing.sm),
+        Text(
+          'This name will sit at the top of every memory.',
+          style: Theme.of(context).textTheme.bodyLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: PawlumSpacing.xl),
         TextField(
           key: const Key('pet-name-field'),
           controller: controller.nameController,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
           onChanged: (String value) => unawaited(controller.updateName(value)),
+          onSubmitted: (_) => unawaited(controller.continueFromName()),
           decoration: InputDecoration(
-            labelText: 'Pet name *',
-            errorText: issues.contains(PetOnboardingIssue.nameRequired)
-                ? 'Pet name is required'
-                : null,
+            labelText: 'Pet name',
+            hintText: 'Mochi',
+            errorText: hasError ? 'Enter your pet’s name to continue' : null,
           ),
-        ),
-        const SizedBox(height: PawlumSpacing.lg),
-        Text('Pet type *', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: PawlumSpacing.xs),
-        Wrap(
-          spacing: PawlumSpacing.xs,
-          runSpacing: PawlumSpacing.xs,
-          children: PetType.values
-              .map((PetType type) {
-                return ChoiceChip(
-                  label: Text(_typeLabel(type)),
-                  selected: draft.type == type,
-                  onSelected: (_) => unawaited(controller.selectType(type)),
-                );
-              })
-              .toList(growable: false),
-        ),
-        if (issues.contains(PetOnboardingIssue.typeRequired))
-          const Padding(
-            padding: EdgeInsets.only(top: PawlumSpacing.xs),
-            child: Text(
-              'Choose a pet type',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        if (draft.type == PetType.other) ...[
-          const SizedBox(height: PawlumSpacing.md),
-          TextField(
-            key: const Key('other-type-field'),
-            controller: controller.otherTypeController,
-            onChanged: (String value) =>
-                unawaited(controller.updateOtherType(value)),
-            decoration: InputDecoration(
-              labelText: 'What kind of pet? *',
-              errorText:
-                  issues.contains(PetOnboardingIssue.otherTypeLabelRequired)
-                  ? 'Custom pet type is required'
-                  : null,
-            ),
-          ),
-        ],
-        const SizedBox(height: PawlumSpacing.lg),
-        _DateField(
-          label: 'Birthday (optional)',
-          value: draft.birthday,
-          onChanged: controller.setBirthday,
-        ),
-        const SizedBox(height: PawlumSpacing.sm),
-        _DateField(
-          label: 'First met or adoption date (optional)',
-          value: draft.firstMetDate,
-          onChanged: controller.setFirstMetDate,
         ),
         const SizedBox(height: PawlumSpacing.xl),
         _BackNextRow(
           onBack: controller.back,
-          nextLabel: 'Continue to photo',
-          onNext: controller.continueFromPetInfo,
+          nextLabel: 'That’s their name',
+          onNext: controller.continueFromName,
+        ),
+      ],
+    );
+  }
+}
+
+class _TypeQuestion extends GetView<PetOnboardingController> {
+  const _TypeQuestion({required this.draft});
+
+  final PetOnboardingDraft draft;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = controller.issues.contains(
+      PetOnboardingIssue.typeRequired,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'What kind of pet is ${_petName(draft)}?',
+          style: Theme.of(context).textTheme.headlineLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: PawlumSpacing.sm),
+        Text(
+          'Choose the one that feels closest.',
+          style: Theme.of(context).textTheme.bodyLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: PawlumSpacing.xl),
+        _PetTypeChoices(
+          selected: draft.type,
+          onSelected: controller.selectType,
+        ),
+        if (hasError) ...[
+          const SizedBox(height: PawlumSpacing.sm),
+          Text(
+            'Choose a pet type to continue',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: PawlumSpacing.xl),
+        _BackNextRow(
+          onBack: controller.back,
+          nextLabel: 'Continue',
+          onNext: controller.continueFromType,
+        ),
+      ],
+    );
+  }
+}
+
+class _PetTypeChoices extends StatelessWidget {
+  const _PetTypeChoices({required this.selected, required this.onSelected});
+
+  final PetType? selected;
+  final Future<void> Function(PetType type) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final itemWidth = constraints.maxWidth >= 480
+            ? (constraints.maxWidth - PawlumSpacing.sm) / 2
+            : constraints.maxWidth;
+
+        return Wrap(
+          spacing: PawlumSpacing.sm,
+          runSpacing: PawlumSpacing.sm,
+          children: PetType.values
+              .map((PetType type) {
+                final isSelected = selected == type;
+                return SizedBox(
+                  width: itemWidth,
+                  child: Semantics(
+                    selected: isSelected,
+                    button: true,
+                    label: _typeLabel(type),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => unawaited(onSelected(type)),
+                        borderRadius: BorderRadius.circular(
+                          PawlumRadii.control,
+                        ),
+                        child: AnimatedContainer(
+                          duration: PawlumMotion.standard,
+                          curve: PawlumMotion.enterCurve,
+                          constraints: const BoxConstraints(minHeight: 68),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: PawlumSpacing.md,
+                            vertical: PawlumSpacing.sm,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? PawlumColors.pinkSoft
+                                : PawlumColors.canvas,
+                            borderRadius: BorderRadius.circular(
+                              PawlumRadii.control,
+                            ),
+                            border: Border.all(
+                              color: isSelected
+                                  ? PawlumColors.pinkStrong
+                                  : PawlumColors.outline,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _typeIcon(type),
+                                color: isSelected
+                                    ? PawlumColors.pinkStrong
+                                    : PawlumColors.inkMuted,
+                              ),
+                              const SizedBox(width: PawlumSpacing.sm),
+                              Expanded(
+                                child: Text(
+                                  _typeLabel(type),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: PawlumColors.pinkStrong,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              })
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+}
+
+class _CustomTypeQuestion extends GetView<PetOnboardingController> {
+  const _CustomTypeQuestion({required this.draft});
+
+  final PetOnboardingDraft draft;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = controller.issues.contains(
+      PetOnboardingIssue.otherTypeLabelRequired,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Center(
+          child: PawlumPetPlaceholder(
+            semanticLabel: 'Other pet type',
+            size: 88,
+            icon: Icons.favorite_rounded,
+          ),
+        ),
+        const SizedBox(height: PawlumSpacing.xl),
+        Text(
+          'Tell us what kind of pet ${_petName(draft)} is',
+          style: Theme.of(context).textTheme.headlineLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: PawlumSpacing.sm),
+        Text(
+          'Use the name you naturally use for them.',
+          style: Theme.of(context).textTheme.bodyLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: PawlumSpacing.xl),
+        TextField(
+          key: const Key('other-type-field'),
+          controller: controller.otherTypeController,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          onChanged: (String value) =>
+              unawaited(controller.updateOtherType(value)),
+          onSubmitted: (_) => unawaited(controller.continueFromCustomType()),
+          decoration: InputDecoration(
+            labelText: 'Kind of pet',
+            hintText: 'Hamster, turtle, gecko…',
+            errorText: hasError ? 'Tell us what kind of pet this is' : null,
+          ),
+        ),
+        const SizedBox(height: PawlumSpacing.xl),
+        _BackNextRow(
+          onBack: controller.back,
+          nextLabel: 'Continue',
+          onNext: controller.continueFromCustomType,
+        ),
+      ],
+    );
+  }
+}
+
+class _DateQuestion extends GetView<PetOnboardingController> {
+  const _DateQuestion({
+    required this.title,
+    required this.description,
+    required this.value,
+    required this.chooseLabel,
+    required this.clearLabel,
+    required this.onChanged,
+    required this.onNext,
+  });
+
+  final String title;
+  final String description;
+  final DateTime? value;
+  final String chooseLabel;
+  final String clearLabel;
+  final Future<void> Function(DateTime? value) onChanged;
+  final Future<void> Function() onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Center(
+          child: PawlumPetPlaceholder(
+            semanticLabel: 'Pet milestone date',
+            size: 88,
+            icon: Icons.calendar_month_rounded,
+          ),
+        ),
+        const SizedBox(height: PawlumSpacing.xl),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.headlineLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: PawlumSpacing.sm),
+        Text(
+          description,
+          style: Theme.of(context).textTheme.bodyLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: PawlumSpacing.xl),
+        OutlinedButton.icon(
+          onPressed: () => _chooseDate(context),
+          icon: const Icon(Icons.calendar_today_rounded),
+          label: Padding(
+            padding: const EdgeInsets.symmetric(vertical: PawlumSpacing.sm),
+            child: Text(
+              value == null ? chooseLabel : DateFormat.yMMMMd().format(value!),
+            ),
+          ),
+        ),
+        if (value != null)
+          Center(
+            child: TextButton(
+              onPressed: () => unawaited(onChanged(null)),
+              child: Text(clearLabel),
+            ),
+          ),
+        const SizedBox(height: PawlumSpacing.xl),
+        _BackNextRow(
+          onBack: controller.back,
+          nextLabel: value == null ? 'Skip for now' : 'Continue',
+          onNext: onNext,
         ),
       ],
     );
   }
 
-  String _typeLabel(PetType type) => switch (type) {
-    PetType.dog => 'Dog',
-    PetType.cat => 'Cat',
-    PetType.bird => 'Bird',
-    PetType.rabbit => 'Rabbit',
-    PetType.other => 'Other',
-  };
-}
-
-class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final DateTime? value;
-  final Future<void> Function(DateTime? value) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: () async {
-        final selected = await showDatePicker(
-          context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime(1980),
-          lastDate: DateTime.now(),
-        );
-        if (selected != null) await onChanged(selected);
-      },
-      icon: const Icon(Icons.calendar_today_rounded),
-      label: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          value == null
-              ? label
-              : '$label: ${DateFormat.yMMMd().format(value!)}',
-        ),
-      ),
+  Future<void> _chooseDate(BuildContext context) async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: value ?? DateTime.now(),
+      firstDate: DateTime(1980),
+      lastDate: DateTime.now(),
     );
+    if (selected != null) await onChanged(selected);
   }
 }
 
-class _PhotoStep extends GetView<PetOnboardingController> {
-  const _PhotoStep({required this.draft});
+class _PhotoQuestion extends GetView<PetOnboardingController> {
+  const _PhotoQuestion({required this.draft});
 
   final PetOnboardingDraft draft;
 
@@ -334,14 +700,16 @@ class _PhotoStep extends GetView<PetOnboardingController> {
   Widget build(BuildContext context) {
     final photo = draft.profileImageBytes;
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Add a favorite photo',
+          'Which photo feels most like ${_petName(draft)}?',
           style: Theme.of(context).textTheme.headlineLarge,
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: PawlumSpacing.sm),
         Text(
-          'Optional for now — a warm placeholder will keep the journal cozy.',
+          'Optional for now. It stays private in your pet journal.',
           style: Theme.of(context).textTheme.bodyLarge,
           textAlign: TextAlign.center,
         ),
@@ -349,7 +717,7 @@ class _PhotoStep extends GetView<PetOnboardingController> {
         SizedBox(
           width: 280,
           child: PawlumPolaroidCard(
-            caption: draft.name.trim().isEmpty ? 'Your pet' : draft.name.trim(),
+            caption: _petName(draft),
             media: photo == null
                 ? const ColoredBox(
                     color: PawlumColors.pinkSoft,
@@ -357,7 +725,11 @@ class _PhotoStep extends GetView<PetOnboardingController> {
                       child: Icon(Icons.add_a_photo_rounded, size: 56),
                     ),
                   )
-                : Image.memory(photo, fit: BoxFit.cover),
+                : Image.memory(
+                    photo,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                  ),
           ),
         ),
         const SizedBox(height: PawlumSpacing.lg),
@@ -377,40 +749,52 @@ class _PhotoStep extends GetView<PetOnboardingController> {
   }
 }
 
-class _ConfirmationStep extends GetView<PetOnboardingController> {
-  const _ConfirmationStep({required this.draft});
+class _ConfirmationQuestion extends GetView<PetOnboardingController> {
+  const _ConfirmationQuestion({required this.draft});
 
   final PetOnboardingDraft draft;
 
   @override
   Widget build(BuildContext context) {
-    final type = draft.type == PetType.other
-        ? draft.customTypeLabel ?? 'Other pet'
-        : draft.type?.name ?? 'Pet';
+    final photo = draft.profileImageBytes;
     final milestoneDate =
         draft.firstMetDate ?? draft.birthday ?? controller.now();
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const PawlumRibbon(label: 'First memory'),
-        const SizedBox(height: PawlumSpacing.lg),
+        const PawlumRibbon(label: 'Ready for the first page'),
+        const SizedBox(height: PawlumSpacing.xl),
         Text(
-          'Your journal is ready to begin',
+          '${_petName(draft)}’s journal is ready',
           style: Theme.of(context).textTheme.headlineLarge,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: PawlumSpacing.lg),
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(PawlumSpacing.lg),
           decoration: BoxDecoration(
-            color: PawlumColors.paper,
-            borderRadius: BorderRadius.circular(PawlumRadii.card),
-            boxShadow: PawlumShadows.paper,
+            color: PawlumColors.paperMuted,
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
-              const PawlumPetPlaceholder(
-                semanticLabel: 'Pet profile preview',
-                size: 88,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(PawlumRadii.control),
+                child: SizedBox.square(
+                  dimension: 92,
+                  child: photo == null
+                      ? const PawlumPetPlaceholder(
+                          semanticLabel: 'Pet profile preview',
+                          size: 92,
+                        )
+                      : Image.memory(
+                          photo,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.medium,
+                        ),
+                ),
               ),
               const SizedBox(width: PawlumSpacing.md),
               Expanded(
@@ -421,10 +805,19 @@ class _ConfirmationStep extends GetView<PetOnboardingController> {
                       draft.name.trim(),
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                    Text(type, style: Theme.of(context).textTheme.bodyLarge),
+                    const SizedBox(height: PawlumSpacing.xxs),
+                    Text(
+                      draft.type == PetType.other
+                          ? draft.customTypeLabel ?? 'Pet'
+                          : _typeLabel(draft.type),
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: PawlumSpacing.xxs),
                     Text(
                       DateFormat.yMMMd().format(milestoneDate),
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: PawlumColors.inkMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -434,7 +827,7 @@ class _ConfirmationStep extends GetView<PetOnboardingController> {
         ),
         const SizedBox(height: PawlumSpacing.lg),
         Text(
-          'Confirming will create the pet journal and an editable first-memory milestone.',
+          'We’ll create their private profile and an editable first memory.',
           style: Theme.of(context).textTheme.bodyLarge,
           textAlign: TextAlign.center,
         ),
@@ -442,7 +835,7 @@ class _ConfirmationStep extends GetView<PetOnboardingController> {
         Obx(
           () => _BackNextRow(
             onBack: controller.back,
-            nextLabel: 'Confirm first memory',
+            nextLabel: 'Create ${_petName(draft)}’s journal',
             onNext: controller.confirm,
             isLoading: controller.isSaving.value,
           ),
@@ -468,18 +861,57 @@ class _BackNextRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        PawlumGhostButton(label: 'Back', onPressed: () => unawaited(onBack())),
+        PawlumGhostButton(
+          label: 'Back',
+          onPressed: isLoading ? null : () => unawaited(onBack()),
+        ),
         const SizedBox(width: PawlumSpacing.sm),
-        Flexible(
-          child: PawlumPrimaryButton(
-            label: nextLabel,
-            isLoading: isLoading,
-            onPressed: () => unawaited(onNext()),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: PawlumPrimaryButton(
+              label: nextLabel,
+              isLoading: isLoading,
+              onPressed: () => unawaited(onNext()),
+            ),
           ),
         ),
       ],
     );
   }
 }
+
+int _progressFor(PetOnboardingQuestion question) {
+  return switch (question) {
+    PetOnboardingQuestion.welcome => 0,
+    PetOnboardingQuestion.name => 1,
+    PetOnboardingQuestion.type || PetOnboardingQuestion.customType => 2,
+    PetOnboardingQuestion.birthday => 3,
+    PetOnboardingQuestion.firstMetDate => 4,
+    PetOnboardingQuestion.photo => 5,
+    PetOnboardingQuestion.confirmation => 6,
+  };
+}
+
+String _petName(PetOnboardingDraft draft) {
+  final name = draft.name.trim();
+  return name.isEmpty ? 'your pet' : name;
+}
+
+String _typeLabel(PetType? type) => switch (type) {
+  PetType.dog => 'Dog',
+  PetType.cat => 'Cat',
+  PetType.bird => 'Bird',
+  PetType.rabbit => 'Rabbit',
+  PetType.other => 'Other',
+  null => 'Pet',
+};
+
+IconData _typeIcon(PetType type) => switch (type) {
+  PetType.dog => Icons.pets_rounded,
+  PetType.cat => Icons.pets_outlined,
+  PetType.bird => Icons.flutter_dash_rounded,
+  PetType.rabbit => Icons.cruelty_free_rounded,
+  PetType.other => Icons.favorite_outline_rounded,
+};

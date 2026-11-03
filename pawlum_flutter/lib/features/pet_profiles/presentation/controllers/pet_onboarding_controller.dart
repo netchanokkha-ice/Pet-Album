@@ -51,11 +51,14 @@ class PetOnboardingController extends GetxController {
   final errorMessage = RxnString();
   final draft = Rxn<PetOnboardingDraft>();
   final issues = <PetOnboardingIssue>{}.obs;
+  final isTurningForward = true.obs;
   final nameController = TextEditingController();
   final otherTypeController = TextEditingController();
   Future<void> _saveTail = Future<void>.value();
 
   PetOnboardingStep get step => draft.value?.step ?? PetOnboardingStep.welcome;
+  PetOnboardingQuestion get question =>
+      draft.value?.resolvedQuestion ?? PetOnboardingQuestion.welcome;
 
   @override
   void onReady() {
@@ -97,9 +100,12 @@ class PetOnboardingController extends GetxController {
     isLoading.value = false;
   }
 
-  Future<void> begin() => _moveTo(PetOnboardingStep.petInfo);
+  Future<void> begin() => _moveTo(PetOnboardingQuestion.name);
 
   Future<void> updateName(String value) {
+    if (value.trim().isNotEmpty) {
+      issues.remove(PetOnboardingIssue.nameRequired);
+    }
     return _update((PetOnboardingDraft current) {
       return current.copyWith(name: value, updatedAt: now());
     });
@@ -107,6 +113,7 @@ class PetOnboardingController extends GetxController {
 
   Future<void> selectType(PetType type) {
     issues.remove(PetOnboardingIssue.typeRequired);
+    issues.remove(PetOnboardingIssue.otherTypeLabelRequired);
     return _update((PetOnboardingDraft current) {
       return current.copyWith(
         type: type,
@@ -117,6 +124,9 @@ class PetOnboardingController extends GetxController {
   }
 
   Future<void> updateOtherType(String value) {
+    if (value.trim().isNotEmpty) {
+      issues.remove(PetOnboardingIssue.otherTypeLabelRequired);
+    }
     return _update((PetOnboardingDraft current) {
       return current.copyWith(customTypeLabel: value, updatedAt: now());
     });
@@ -142,15 +152,50 @@ class PetOnboardingController extends GetxController {
     });
   }
 
-  Future<bool> continueFromPetInfo() async {
+  Future<bool> continueFromName() async {
     final current = draft.value;
     if (current == null) return false;
-    final validationIssues = current.input.validate(now()).toSet();
-    issues.assignAll(validationIssues);
-    if (validationIssues.isNotEmpty) return false;
-    await _moveTo(PetOnboardingStep.photo);
+    if (current.name.trim().isEmpty) {
+      issues.assignAll(<PetOnboardingIssue>{PetOnboardingIssue.nameRequired});
+      return false;
+    }
+    await _moveTo(PetOnboardingQuestion.type);
     return true;
   }
+
+  Future<bool> continueFromType() async {
+    final current = draft.value;
+    if (current == null) return false;
+    if (current.type == null) {
+      issues.assignAll(<PetOnboardingIssue>{PetOnboardingIssue.typeRequired});
+      return false;
+    }
+    await _moveTo(
+      current.type == PetType.other
+          ? PetOnboardingQuestion.customType
+          : PetOnboardingQuestion.birthday,
+    );
+    return true;
+  }
+
+  Future<bool> continueFromCustomType() async {
+    final current = draft.value;
+    if (current == null) return false;
+    if (current.customTypeLabel?.trim().isEmpty ?? true) {
+      issues.assignAll(<PetOnboardingIssue>{
+        PetOnboardingIssue.otherTypeLabelRequired,
+      });
+      return false;
+    }
+    await _moveTo(PetOnboardingQuestion.birthday);
+    return true;
+  }
+
+  Future<void> continueFromBirthday() =>
+      _moveTo(PetOnboardingQuestion.firstMetDate);
+
+  Future<void> continueFromFirstMetDate() =>
+      _moveTo(PetOnboardingQuestion.photo);
 
   Future<void> pickPhoto() async {
     final selected = await photoPicker.pickPhoto();
@@ -166,16 +211,24 @@ class PetOnboardingController extends GetxController {
     });
   }
 
-  Future<void> continueFromPhoto() => _moveTo(PetOnboardingStep.confirmation);
+  Future<void> continueFromPhoto() =>
+      _moveTo(PetOnboardingQuestion.confirmation);
 
   Future<void> back() {
-    final previous = switch (step) {
-      PetOnboardingStep.welcome => PetOnboardingStep.welcome,
-      PetOnboardingStep.petInfo => PetOnboardingStep.welcome,
-      PetOnboardingStep.photo => PetOnboardingStep.petInfo,
-      PetOnboardingStep.confirmation => PetOnboardingStep.photo,
+    final previous = switch (question) {
+      PetOnboardingQuestion.welcome => PetOnboardingQuestion.welcome,
+      PetOnboardingQuestion.name => PetOnboardingQuestion.welcome,
+      PetOnboardingQuestion.type => PetOnboardingQuestion.name,
+      PetOnboardingQuestion.customType => PetOnboardingQuestion.type,
+      PetOnboardingQuestion.birthday =>
+        draft.value?.type == PetType.other
+            ? PetOnboardingQuestion.customType
+            : PetOnboardingQuestion.type,
+      PetOnboardingQuestion.firstMetDate => PetOnboardingQuestion.birthday,
+      PetOnboardingQuestion.photo => PetOnboardingQuestion.firstMetDate,
+      PetOnboardingQuestion.confirmation => PetOnboardingQuestion.photo,
     };
-    return _moveTo(previous);
+    return _moveTo(previous, forward: false);
   }
 
   Future<void> keepDraftAndExit() async {
@@ -201,11 +254,29 @@ class PetOnboardingController extends GetxController {
     }
   }
 
-  Future<void> _moveTo(PetOnboardingStep next) {
+  Future<void> _moveTo(PetOnboardingQuestion next, {bool forward = true}) {
+    isTurningForward.value = forward;
     issues.clear();
     return _update((PetOnboardingDraft current) {
-      return current.copyWith(step: next, updatedAt: now());
+      return current.copyWith(
+        step: _stepFor(next),
+        question: next,
+        updatedAt: now(),
+      );
     });
+  }
+
+  PetOnboardingStep _stepFor(PetOnboardingQuestion question) {
+    return switch (question) {
+      PetOnboardingQuestion.welcome => PetOnboardingStep.welcome,
+      PetOnboardingQuestion.name ||
+      PetOnboardingQuestion.type ||
+      PetOnboardingQuestion.customType ||
+      PetOnboardingQuestion.birthday ||
+      PetOnboardingQuestion.firstMetDate => PetOnboardingStep.petInfo,
+      PetOnboardingQuestion.photo => PetOnboardingStep.photo,
+      PetOnboardingQuestion.confirmation => PetOnboardingStep.confirmation,
+    };
   }
 
   Future<void> _update(
