@@ -55,6 +55,8 @@
   "recovery_body": "หากอีเมลนี้มีบัญชีอยู่ ขั้นตอนกู้คืนกำลังเดินทางไปหาแล้ว",
   "email_label": "อีเมล",
   "password_label": "รหัสผ่าน",
+  "show_password": "แสดงรหัสผ่าน",
+  "hide_password": "ซ่อนรหัสผ่าน",
   "email_required": "กรุณากรอกอีเมล",
   "email_invalid": "กรุณากรอกอีเมลให้ถูกต้อง",
   "password_required": "กรุณากรอกรหัสผ่าน",

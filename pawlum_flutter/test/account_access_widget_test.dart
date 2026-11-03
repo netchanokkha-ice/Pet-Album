@@ -45,6 +45,33 @@ void main() {
     );
   });
 
+  testWidgets('password visibility control reveals and hides the password', (
+    tester,
+  ) async {
+    await _openAccountAccess(tester, repository);
+
+    EditableText passwordInput() => tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('account-password-field')),
+        matching: find.byType(EditableText),
+      ),
+    );
+
+    expect(passwordInput().obscureText, isTrue);
+    expect(find.byTooltip('Show password'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('account-password-visibility')));
+    await tester.pump();
+
+    expect(passwordInput().obscureText, isFalse);
+    expect(find.byTooltip('Hide password'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('account-password-visibility')));
+    await tester.pump();
+
+    expect(passwordInput().obscureText, isTrue);
+  });
+
   testWidgets('phone sign-in screen matches its golden', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);

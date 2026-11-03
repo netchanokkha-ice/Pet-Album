@@ -150,6 +150,7 @@ class _CredentialsFormState extends State<_CredentialsForm> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -186,11 +187,25 @@ class _CredentialsFormState extends State<_CredentialsForm> {
           TextFormField(
             key: const Key('account-password-field'),
             controller: _passwordController,
-            obscureText: true,
+            obscureText: _obscurePassword,
             autofillHints: const [AutofillHints.password],
             decoration: InputDecoration(
               labelText: widget.strings.text('password_label'),
               prefixIcon: const Icon(Icons.lock_outline_rounded),
+              suffixIcon: IconButton(
+                key: const Key('account-password-visibility'),
+                tooltip: widget.strings.text(
+                  _obscurePassword ? 'show_password' : 'hide_password',
+                ),
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+                onPressed: () => setState(
+                  () => _obscurePassword = !_obscurePassword,
+                ),
+              ),
             ),
             validator: (value) => _validatePassword(value, widget.strings),
           ),

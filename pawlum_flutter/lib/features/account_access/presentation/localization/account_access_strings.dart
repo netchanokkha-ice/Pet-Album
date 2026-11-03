@@ -29,6 +29,8 @@ class AccountAccessStrings {
       'recovery_body': strings.recovery_body,
       'email_label': strings.email_label,
       'password_label': strings.password_label,
+      'show_password': strings.show_password,
+      'hide_password': strings.hide_password,
       'email_required': strings.email_required,
       'email_invalid': strings.email_invalid,
       'password_required': strings.password_required,
